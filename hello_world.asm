@@ -1,11 +1,16 @@
-;;; -*- tab-width: 2 -*-
+;;; -*- tab-width: 2; comment-column: 32; -*-
 
 ;;; These four lines go at the beginning of almost every code file. 16-byte iNES header
 
-  .inesprg 1                      ; one bank of program code
-  .ineschr 1                      ; one bank of picture data
-  .inesmap 0                      ; we use mapper 0
-  .inesmir 1                      ; Mirror setting always 1
+  .inesprg 1                    ; one bank of program code
+  .ineschr 1                    ; one bank of picture data
+  .inesmap 0                    ; we use mapper 0
+  .inesmir 1                    ; Mirror setting always 1
+
+;;; VARIABLES
+  .rsset $0000
+
+buttons1 .rs 1                  ; reserve 1 byte of space
 
 ;;; BANKING
 ;;; NESASM arranges everything in 8KB code and 8KB graphics banks. For each bank you have to tell the assembler where in memory it will start
@@ -54,9 +59,9 @@ LoadPalettesLoop:
   ;; SPRITE DATA
   ;; Each sprite needs 4 bytes of data for its position and tile information in this order:
   ;;
-  ;; 1 | Y Position  | $00 = top of screen, $EF = bottom of screen
-  ;; 2 | Tile Number | 0 - 256, tile number for the graphic to be taken from the pattern table.
-  ;; 3 | Attributes  | Holds color and display info:
+  ;; 0 | Y Position  | $00 = top of screen, $EF = bottom of screen
+  ;; 1 | Tile Number | 0 - 256, tile number for the graphic to be taken from the pattern table.
+  ;; 2 | Attributes  | Holds color and display info:
   ;;                   76543210
   ;;                   |||   ||
   ;;                   |||   ++- Color Palette of sprite.  Choose which set of 4 from the 16 colors to use
@@ -64,7 +69,7 @@ LoadPalettesLoop:
   ;;                   ||+------ Priority (0: in front of background; 1: behind background)
   ;;                   |+------- Flip sprite horizontally
   ;;                   +-------- Flip sprite vertically
-  ;; 4 | X Position  | $00 = left, $F9 = right
+  ;; 3 | X Position  | $00 = left, $F9 = right
   ;;
   ;; These 4 bytes repeat 64 times (one set per sprite) to fill the 256 bytes of sprite memory. To edit sprite 0, change bytes $0200-0203, Sprite 1 is $0204-0207, etc.
 
@@ -115,11 +120,13 @@ LoadSpritesLoop:
   ;; ||+------ Intensify reds (and darken other colors)
   ;; |+------- Intensify greens (and darken other colors)
   ;; +-------- Intensify blues (and darken other colors)
-  LDA #%10010000                ; enable sprites, intensify blues
+  LDA #%00010000                ; enable sprites
   STA $2001
 
 Forever:
   JMP Forever
+
+
 
   ;; x = memory location of sprite, offset from $0200
   ;; y = number of tiles in sprite
@@ -133,7 +140,9 @@ DecrementSpriteLoop:
   TAX
   DEY                           ; y--
   BNE DecrementSpriteLoop       ; while (y != 0)
+FinishDecrementSpriteLoop:
   RTS
+
 
 IncrementSpritePosition:
   LDY #$04
@@ -145,6 +154,44 @@ IncrementSpriteLoop:
   TAX
   DEY                           ; y--
   BNE IncrementSpriteLoop       ; while (y != 0)
+FinishIncrementSpriteLoop:
+  RTS
+
+
+  ;; Subroutine to load state of controller 1 into buttons1
+  ;; after this routine the bits in buttons1 will be:
+  ;;  7   6       5      4   3     2     1      0
+  ;;  A   B  select  start  up  down  left  right
+ReadController1:
+  ;; The controllers are accessed through memory locations $4016 and $4017. First you have to write $01 and then $00 to $4016.
+  ;; This tells the controllers to latch the current button positions. Then you read from $4016 for first player or $4017 for second player.
+  ;; The buttons are sent one at a time, in bit 0.
+  ;; Button status for each controller is returned in the following order: A, B, Select, Start, Up, Down, Left, Right
+LatchControllers:
+  LDA #$01
+  STA $4016
+  LDA #$00
+  STA $4016
+
+  LDX #$08
+ReadControllerLoop:
+  LDA $4016
+  LSR A                         ; bit0 -> Carry
+  ROL buttons1                  ; bit0 <- Carry
+  DEX
+  BNE ReadControllerLoop
+  RTS
+
+
+FlipSprite:
+  LDX $0201
+  LDY $0205
+  STY $0201
+  STX $0205
+  LDX $0209
+  LDY $020D
+  STY $0209
+  STX $020D
   RTS
 
 
@@ -159,63 +206,68 @@ NMI:
   STA $4014                     ; set the high byte (02) of the RAM address, start the transfer
 
 
-ReadControllers:
-  ;; The controllers are accessed through memory locations $4016 and $4017. First you have to write $01 and then $00 to $4016.
-  ;; This tells the controllers to latch the current button positions. Then you read from $4016 for first player or $4017 for second player.
-  ;; The buttons are sent one at a time, in bit 0.
-  ;; Button status for each controller is returned in the following order: A, B, Select, Start, Up, Down, Left, Right
+HandleButtons:
+  JSR ReadController1
 
-LatchControllers:
-  LDA #$01
-  STA $4016
-  LDA #$00
-  STA $4016
-
-ReadPlayer1A:
-  LDA $4016
-
-ReadPlayer1B:
-  LDA $4016
-
-ReadPlayer1Select:
-  LDA $4016
-
-ReadPlayer1Start:
-  LDA $4016
-
-ReadPlayer1Up:
-  LDA $4016
-  AND #%00000001
-  BEQ ReadPlayer1Down
+HandlePlayer1Up:
+  LDA buttons1
+  AND #%1000
+  BEQ HandlePlayer1Down
 OnPlayer1Up:
   LDX #$00
   JSR DecrementSpritePosition
 
-ReadPlayer1Down:
-  LDA $4016
-  AND #%00000001
-  BEQ ReadPlayer1Left
+HandlePlayer1Down:
+  LDA buttons1
+  AND #%0100
+  BEQ HandlePlayer1Left
 OnPlayer1Down:
   LDX #$00
   JSR IncrementSpritePosition
 
-ReadPlayer1Left:
-  LDA $4016
-  AND #%00000001
-  BEQ ReadPlayer1Right
+HandlePlayer1Left:
+  LDA buttons1
+  AND #%0010
+  BEQ HandlePlayer1Right
 OnPlayer1Left:
+  ;; Move to the left
   LDX #$03
   JSR DecrementSpritePosition
 
-ReadPlayer1Right:
-  LDA $4016
-  AND #%00000001
-  BEQ ReadDone
+  ;; Check and see if sprite is already flipped, if not, flip it
+  LDA $0202
+  AND #%01000000
+  BNE HandlePlayer1Right
+
+  ;; Flip the sprite
+  LDA #%01000000
+  STA $0202
+  STA $0206
+  STA $020A
+  STA $020E
+  JSR FlipSprite
+
+
+HandlePlayer1Right:
+  LDA buttons1
+  AND #%0001
+  BEQ FinishHandleButtons
 OnPlayer1Right:
   LDX #$03
   JSR IncrementSpritePosition
 
-ReadDone:
+  LDA $0202
+  AND #%01000000
+  BEQ FinishHandleButtons
+
+  LDA #$0
+  STA $0202
+  STA $0206
+  STA $020A
+  STA $020E
+  JSR FlipSprite
+
+FinishHandleButtons:
   RTI                           ; Return from interrupt
 
 
