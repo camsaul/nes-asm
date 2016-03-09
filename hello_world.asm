@@ -89,18 +89,19 @@ LoadSpritesLoop:
 
   ;; PPU Control ($2000)
   ;;  PPUCTRL ($2000)
-  ;;  76543210
-  ;;  | ||||||
-  ;;  | ||||++- Base nametable address
-  ;;  | ||||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
-  ;;  | |||+--- VRAM address increment per CPU read/write of PPUDATA
-  ;;  | |||     (0: increment by 1, going across; 1: increment by 32, going down)
-  ;;  | ||+---- Sprite pattern table address for 8x8 sprites (0: $0000; 1: $1000)
-  ;;  | |+----- Background pattern table address (0: $0000; 1: $1000)
-  ;;  | +------ Sprite size (0: 8x8; 1: 8x16)
+  ;;  7654 3210  (6) is unused
+  ;;  | || ||||
+  ;;  | || ||++- [0] Base nametable address
+  ;;  | || ||        (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
+  ;;  | || |+--- [2] VRAM address increment per CPU read/write of PPUDATA
+  ;;  | || |         (0: increment by 1, going across; 1: increment by 32, going down)
+  ;;  | || +---- [3] Sprite pattern table address for 8x8 sprites (0: $0000; 1: $1000)
+  ;;  | ||
+  ;;  | |+------ [4] Background pattern table address (0: $0000; 1: $1000)
+  ;;  | +------- [5] Sprite size (0: 8x8; 1: 8x16)
   ;;  |
-  ;;  +-------- Generate an NMI at the start of the
-  ;;            vertical blanking interval vblank (0: off; 1: on)
+  ;;  +--------- [7] Generate an NMI at the start of the
+  ;;                 vertical blanking interval vblank (0: off; 1: on)
 
   LDA #%10000000                 ; enable NMI, sprites from pattern table 0
   STA $2000
@@ -276,8 +277,8 @@ FinishHandleButtons:
   .org $E000                    ; start at $E000
 
 PaletteData:
-  .db $0F,$31,$32,$33,$0F,$35,$36,$37,$0F,$39,$3A,$3B,$0F,$3D,$3E,$0F  ;background palette data
-  .db $0F,$1C,$15,$14,$0F,$02,$38,$3C,$0F,$1C,$15,$14,$0F,$02,$38,$3C  ;sprite palette data
+  .db $0F,$31,$32,$33,$0F,$35,$36,$37, $0F,$39,$3A,$3B,$0F,$3D,$3E,$0F  ;background palette data
+  .db $0F,$1C,$15,$14,$0F,$02,$38,$3C, $0F,$1C,$15,$14,$0F,$02,$38,$3C  ;sprite palette data
 
 SpriteData:
   ;;  vert tile attr horiz
