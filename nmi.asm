@@ -19,10 +19,16 @@ CreateScoreText .macro
 _CreateScoreText:
   LDX arg1
   ;; hundreds
-  LDY #$00
-  CPX #200
-
+  LDA controller1
+  AND #CONTROLLER_LEFT
+  BEQ OnPlayer1LeftDown
+  JMP OnPlayer1LeftUp
+OnPlayer1LeftDown:
+  LDA #$02
+  JMP Player1LeftDone
+OnPlayer1LeftUp:
   LDA #$01
+Player1LeftDone:
   STA [arg2], y
 
   ;; tens
@@ -56,30 +62,6 @@ NMI:
   JSR ReadControllers
 
   ;; Game logic goes here!
-
-;; HandleButtons:
-;;   LDA controller1
-;;   STA arg1
-;;   LDA #CONTROLLER_UP
-;;   STA arg2
-;;   LDA #low(HandlePlayer1Up)
-;;   STA arg3
-;;   LDA #high(HandlePlayer1Up)
-;;   STA arg4
-;;   JSR OnController
-
-;; HandlePlayer1Up:
-;;   LDA controller1
-;;   AND #CONTROLLER_UP
-;;   BEQ HandlePlayer1Down
-;; OnPlayer1Up:
-;; HandlePlayer1Down:
-;;   LDA controller1
-;;   AND #CONTROLLER_DOWN
-;;   BEQ FinishHandleButtons
-;; OnPlayer1Down:
-;;   JSR RenderScore2
-;; FinishHandleButtons:
 
   JMP ResetPPUAddress
   RTI

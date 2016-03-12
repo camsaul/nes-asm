@@ -39,7 +39,7 @@ FinishRenderText:
   RTS
 
 
-;;; ReadController(portAddressLow, portAddressHigh, destAddressLow, destAddressHigh)
+;;; ReadController(portAddress, destAddress)
 ReadController:
   LDX #$08
 ReadControllerLoop:
@@ -50,15 +50,11 @@ ReadControllerLoop:
   BNE ReadControllerLoop
   RTS
 
-
 ReadControllers:
-  ;; Strobe the controllers
-  Put #$01, CONTROLLER_1
+  Put #$01, CONTROLLER_1        ; Strobe the controllers
   Put #$00, CONTROLLER_1
-
-  ;; ReadController(#CONTROLLER_1, #$controller1)
   Funcall4 ReadController, #$40, #$16, #low(controller1), #high(controller1)
-
+  Funcall4 ReadController, #$40, #$17, #low(controller2), #high(controller2)
   RTS
 
 
